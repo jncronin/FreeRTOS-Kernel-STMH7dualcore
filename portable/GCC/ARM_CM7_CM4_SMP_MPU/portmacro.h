@@ -319,10 +319,10 @@ void vPortRecursiveLock(int lck_id, BaseType_t to_lock);
 #define portENTER_CRITICAL()                      vPortEnterCritical()
 #define portEXIT_CRITICAL()                       vPortExitCritical()
 
-#define portSET_INTERRUPT_MASK_FROM_ISR()           ({ portDISABLE_INTERRUPTS(); vTaskEnterCritical(); 0UL; })
-#define portCLEAR_INTERRUPT_MASK_FROM_ISR( x )      do { (void)(x); vTaskExitCritical(); portENABLE_INTERRUPTS(); } while (0)
-#define portSET_INTERRUPT_MASK()                    ({ portDISABLE_INTERRUPTS(); vTaskEnterCritical(); 0UL; })
-#define portCLEAR_INTERRUPT_MASK( x )               do { (void)(x); vTaskExitCritical(); portENABLE_INTERRUPTS(); } while (0)
+#define portSET_INTERRUPT_MASK_FROM_ISR()           ({ uint32_t ulStateIsr = ulPortRaiseBASEPRI(); vTaskEnterCritical(); ulStateIsr; })
+#define portCLEAR_INTERRUPT_MASK_FROM_ISR( x )      do { vTaskExitCritical(); vPortSetBASEPRI(x); } while (0)
+#define portSET_INTERRUPT_MASK()                    ({ uint32_t ulStateIsr = ulPortRaiseBASEPRI(); vTaskEnterCritical(); ulStateIsr; })
+#define portCLEAR_INTERRUPT_MASK( x )               do { vTaskExitCritical(); vPortSetBASEPRI(x); } while (0)
 #define portENTER_CRITICAL_FROM_ISR()               vTaskEnterCriticalFromISR()
 #define portEXIT_CRITICAL_FROM_ISR( x )             vTaskExitCriticalFromISR(x)
 
