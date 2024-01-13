@@ -1181,6 +1181,8 @@ void xPortSysTickHandler( void )
 {
     uint32_t ulDummy;
 
+    LPTIM1->ICR = LPTIM_ICR_ARRMCF;
+
     ulDummy = portSET_INTERRUPT_MASK_FROM_ISR();
     traceISR_ENTER();
     {
@@ -1206,7 +1208,21 @@ void xPortSysTickHandler( void )
  */
 __attribute__( ( weak ) ) void vPortSetupTimerInterrupt( void )
 {
-    #error TODO: set up LPTIM1 here
+    // Use LPTIM1 with /4 prescaler
+    RCC->APB1LENR |= RCC_APB1LENR_LPTIM1EN;
+    (void)RCC->APB1LENR;
+    RCC->APB1LRSTR = RCC_APB1LRSTR_LPTIM1RST;
+    (void)RCC->APB1LRSTR;
+    RCC->APB1LRSTR = 0;
+    (void)RCC->APB1LRSTR;
+
+    LPTIM1->IER = LPTIM_IER_ARRMIE;
+    LPTIM1->CFGR = 2UL << LPTIM_CFGR_PRESC_Pos;
+    LPTIM1->CR = LPTIM_CR_ENABLE;
+    LPTIM1->ARR = (configSYSTICK_CLOCK_HZ / configTICK_RATE_HZ) - 1;
+    LPTIM1->CR = LPTIM_CR_ENABLE | LPTIM_CR_CNTSTRT;
+
+    NVIC_EnableIRQ(LPTIM1_IRQn);
 }
 /*-----------------------------------------------------------*/
 
@@ -1255,7 +1271,21 @@ static void prvSetupMPU( void )
     configASSERT( portMPU_TYPE_REG == portEXPECTED_MPU_TYPE_VALUE );
 
     /* Check the expected MPU is present. */
-    if( portMPU_TYPE_REG == portEXPECTED_MPU_TYPE_VALUE )
+    #define M7_EXPECTED_MPU_TYPE_VALUE  (16UL << 8UL)
+    if( portMPU_TYPE_REG == M7_EXPECTED_MPU_TYPE_VALUE )
+    {
+        // disable top 8 regions
+        for(uint32_t reg_id = 8; reg_id < 16; reg_id++)
+        {
+            portMPU_REGION_BASE_ADDRESS_REG = ( 0UL ) |
+                ( portMPU_REGION_VALID ) |
+                reg_id;
+
+            portMPU_REGION_ATTRIBUTE_REG = 0UL;
+        }
+    }
+    if( portMPU_TYPE_REG == portEXPECTED_MPU_TYPE_VALUE ||
+        portMPU_TYPE_REG == M7_EXPECTED_MPU_TYPE_VALUE)
     {
         /* First setup the unprivileged flash for unprivileged read only access. */
         portMPU_REGION_BASE_ADDRESS_REG = ( ( uint32_t ) __FLASH_segment_start__ ) | /* Base address. */
